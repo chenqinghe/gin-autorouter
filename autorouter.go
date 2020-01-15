@@ -10,28 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AutoRouter(handler interface{}) gin.HandlerFunc {
-	funcs := findHandlerFuncs(handler, true)
-
-	return func(c *gin.Context) {
-		method, args := parseMethodAndArgs(c)
-
-		if len(args) > 0 {
-			http.NotFound(c.Writer, c.Request)
-			c.Abort()
-			return
-		}
-
-		fn, exist := funcs[strings.ToLower(method)]
-		if !exist {
-			http.NotFound(c.Writer, c.Request)
-			c.Abort()
-			return
-		}
-		fn.Call([]reflect.Value{reflect.ValueOf(c)})
-	}
-}
-
 // parseMethodAndArgs parse method and arguments from request context param "path"
 // it will trim both left and right '/' first.
 // if path empty, we will treat request http method  as method name and arguments empty.
@@ -53,78 +31,20 @@ func parseMethodAndArgs(c *gin.Context) (method string, args []string) {
 	return method, segments
 }
 
-func RouterAny(handler interface{}) gin.HandlerFunc {
-	funcs := findHandlerFuncs(handler, false)
+// parseRESTMethodAndArgs is like parseMethodAndArgs, but all segments are parsed to arguments.
+func parseRESTMethodAndArgs(c *gin.Context) (method string, args []string) {
+	method = c.Request.Method
+	path := c.Param("path")
+	path = strings.Trim(path, "/")
+	return method, strings.Split(path, "/")
+}
 
-	return func(c *gin.Context) {
-		method, args := parseMethodAndArgs(c)
+func AutoRoute(handler interface{}) gin.HandlerFunc {
+	return findAndCall(handler, true, parseMethodAndArgs)
+}
 
-		fn, exist := funcs[strings.ToLower(method)]
-		if !exist {
-			http.NotFound(c.Writer, c.Request)
-			c.Abort()
-			return
-		}
-
-		numIn := fn.Type().NumIn() // include method receiver
-		if numIn-1 > len(args) &&
-			(fn.Type().IsVariadic() && numIn-2 > len(args)) { // not enough arguments
-			http.NotFound(c.Writer, c.Request)
-			c.Abort()
-			return
-		}
-
-		arguments := make([]reflect.Value, 1, numIn)
-		arguments[0] = reflect.ValueOf(c) // *gin.Context
-		t := numIn - 1                    // non-variadic arguments number
-		isVariadic := fn.Type().IsVariadic()
-		if isVariadic {
-			t--
-		}
-
-		popArg := func() (string, bool) {
-			if len(args) > 0 {
-				t := args[0]
-				args = args[1:]
-				return t, true
-			}
-			return "", false
-		}
-		for i := 0; i < t; i++ {
-			argStr, ok := popArg()
-			if !ok {
-				break
-			}
-			arg, err := convertType(argStr, fn.Type().In(i+1).Kind())
-			if err != nil {
-				http.NotFound(c.Writer, c.Request)
-				c.Abort()
-				return
-			}
-			arguments = append(arguments, arg)
-		}
-
-		if isVariadic {
-			if len(args) > 0 {
-				variadicKind := fn.Type().In(numIn - 1).Elem().Kind()
-				for {
-					argStr, ok := popArg()
-					if !ok {
-						break
-					}
-					arg, err := convertType(argStr, variadicKind)
-					if err != nil {
-						http.NotFound(c.Writer, c.Request)
-						c.Abort()
-						return
-					}
-					arguments = append(arguments, arg)
-				}
-			}
-		}
-
-		fn.Call(arguments)
-	}
+func RouteAny(handler interface{}) gin.HandlerFunc {
+	return findAndCall(handler, false, parseMethodAndArgs)
 }
 
 func convertType(val string, inType reflect.Kind) (reflect.Value, error) {
@@ -205,4 +125,90 @@ func findHandlerFuncs(handler interface{}, onlyCtx bool) map[string]reflect.Valu
 		}
 	}
 	return funcs
+}
+
+func REST(handler interface{}) gin.HandlerFunc {
+	return findAndCall(handler, true, parseRESTMethodAndArgs)
+}
+
+func RESTAny(handler interface{}) gin.HandlerFunc {
+	return findAndCall(handler, false, parseRESTMethodAndArgs)
+}
+
+func findAndCall(handler interface{}, onlyCtx bool, finder func(c *gin.Context) (string, []string)) gin.HandlerFunc {
+	funcs := findHandlerFuncs(handler, onlyCtx)
+	return func(c *gin.Context) {
+
+		method, args := finder(c)
+		fn, exist := funcs[strings.ToLower(method)]
+		if !exist {
+			http.NotFound(c.Writer, c.Request)
+			c.Abort()
+			return
+		}
+
+		numIn := fn.Type().NumIn() // include method receiver
+		if (fn.Type().IsVariadic() && numIn-2 > len(args)) ||
+			numIn-1 > len(args) { // not enough arguments
+			http.NotFound(c.Writer, c.Request)
+			c.Abort()
+			return
+		}
+
+		arguments := make([]reflect.Value, 1, numIn)
+		arguments[0] = reflect.ValueOf(c) // *gin.Context
+
+		if !onlyCtx {
+			t := numIn - 1 // non-variadic arguments number
+			isVariadic := fn.Type().IsVariadic()
+			if isVariadic {
+				t--
+			}
+
+			popArg := func() (string, bool) {
+				if len(args) > 0 {
+					t := args[0]
+					args = args[1:]
+					return t, true
+				}
+				return "", false
+			}
+			for i := 0; i < t; i++ {
+				argStr, ok := popArg()
+				if !ok {
+					break
+				}
+				arg, err := convertType(argStr, fn.Type().In(i+1).Kind())
+				if err != nil {
+					http.NotFound(c.Writer, c.Request)
+					c.Abort()
+					return
+				}
+				arguments = append(arguments, arg)
+			}
+
+			if isVariadic {
+				if len(args) > 0 {
+					variadicKind := fn.Type().In(numIn - 1).Elem().Kind()
+					for {
+						argStr, ok := popArg()
+						if !ok {
+							break
+						}
+						arg, err := convertType(argStr, variadicKind)
+						if err != nil {
+							http.NotFound(c.Writer, c.Request)
+							c.Abort()
+							return
+						}
+						arguments = append(arguments, arg)
+					}
+				}
+			}
+		}
+
+		fn.Call(arguments)
+
+	}
+
 }

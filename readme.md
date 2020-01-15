@@ -3,10 +3,12 @@
 gin-autorouter is a middleware which could automatic mapping request url to a handler method.
 
 ## Api
-the project have two main functions:
+the project have four main functions:
 
-* AutoRouter
-* RouterAny
+* AutoRoute
+* RouteAny
+* REST
+* RESTAny
 
 
 ## Basic Uage
@@ -30,7 +32,7 @@ func (t *T)Hello(c *gin.Context) {
 
 func main(){
 	r:=gin.Default()
-	r.Any("/*path",router.AutoRouter(&T{}))
+	r.Any("/*path",router.AutoRoute(&T{}))
 	r.Run(":8080")	
 }
 
@@ -63,13 +65,13 @@ func (h *Article)Delete(c *gin.Context) {
 
 func main(){
 	r := gin.Default()
-	r.Any("/article/:id",router.AutoRouter(&Article{}))
+	r.Any("/article/:id",router.REST(&Article{}))
 }
 
 //  * GET /article/123 => *Article.Get
 //  * Delete /article/123 => *Article.Delete
 ```
-also, you can use RouterAny, things will be extremely easy!!
+also, you can use RESTAny, things will be extremely easy!!
 
 ```go
 package main
@@ -89,7 +91,7 @@ func (h *Article)Delete(c *gin.Context, id int) {
 
 func main(){
 	r:= gin.Default()
-	r.Any("/*path",router.RouterAny(&Article{}))
+	r.Any("/article/:path",router.RESTAny(&Article{}))
 }
 
 // GET /article/123 => *Article.Get(c, 123)

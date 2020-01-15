@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -18,7 +19,9 @@ func (t *T) Post(c *gin.Context) {
 	c.Writer.WriteString("hello from T.Post")
 }
 
-func (t *T) Delete(c *gin.Context) {
+func (t *T) Delete(c *gin.Context, id int) {
+	fmt.Println("param id:", c.Param("id"))
+	fmt.Println("arg id:", id)
 	c.Writer.WriteString("hello from T.Delete")
 }
 
@@ -39,17 +42,22 @@ func ExampleAutoRouter() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
-	r.Any("/*path", AutoRouter(&T{}))
+	r.Any("/*path", AutoRoute(&T{}))
 
 	r.Run(":9091")
 
 }
 
-func ExampleRouterAny() {
+func TestRouterAny(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
-	r.Any("/*path", RouterAny(&T{}))
+	//r.Any("/article/:method/*args", RouterAny(&T{}))
+	r.Any("/article/*path", RESTAny(&T{}))
+
+	r.Any("/aa/:a/:b/:c", func(c *gin.Context) {
+		fmt.Println(c.Params)
+	})
 
 	r.Run(":9092")
 }
