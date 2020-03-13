@@ -43,7 +43,7 @@ func AutoRoute(handler interface{}) gin.HandlerFunc {
 	return findAndCall(handler, true, parseMethodAndArgs)
 }
 
-func RouteAny(handler interface{}) gin.HandlerFunc {
+func AutoRouteAny(handler interface{}) gin.HandlerFunc {
 	return findAndCall(handler, false, parseMethodAndArgs)
 }
 
