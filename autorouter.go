@@ -119,8 +119,8 @@ func findHandlerFuncs(handler interface{}, onlyCtx bool) map[string]reflect.Valu
 		fn := rv.Method(i)
 		ft := rt.Method(i)
 
-		if (!onlyCtx || ft.Type.NumIn() == 2) &&
-			ft.Type.In(1) == ginContextType {
+		if (onlyCtx && ft.Type.NumIn() == 2 && ft.Type.In(1) == ginContextType) ||
+			(!onlyCtx && ft.Type.NumIn() >= 2 && ft.Type.In(1) == ginContextType) {
 			funcs[strings.ToLower(ft.Name)] = fn
 		}
 	}
