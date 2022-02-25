@@ -16,27 +16,22 @@ the project have four main functions:
 ```go
 package main
 
-
-type T struct{
-	
+type T struct {
 }
 
-func (t *T)Greet(c *gin.Context)  {
-    c.Writer.WriteString("hello from *T.Greet")
+func (t *T) Greet(c *gin.Context) {
+	c.Writer.WriteString("hello from *T.Greet")
 }
 
-func (t *T)Hello(c *gin.Context) {
-    c.Writer.WriteString("hello from *T.Hello")
+func (t *T) Hello(c *gin.Context) {
+	c.Writer.WriteString("hello from *T.Hello")
 }
 
-
-func main(){
-	r:=gin.Default()
-	r.Any("/*path",router.AutoRoute(&T{}))
-	r.Run(":8080")	
+func main() {
+	r := gin.Default()
+	r.Any("/*path", router.AutoRoute(&T{}))
+	r.Run(":8080")
 }
-
-
 ```
 you only need to register a router with pattern "/*path"
 
@@ -50,53 +45,56 @@ with AutoRouter, you can create restful api very easily.
 ```go
 package main
 
+import "net/http"
+
 func (h *Article) Get(c *gin.Context) {
 	articleId := c.Param("id")
 	// search artile stuff.....
 	article := model.SearchArticle(articleId)
-	c.JSONP(http.StatusOK,article)
+	c.JSONP(http.StatusOK, article)
 }
 
-func (h *Article)Delete(c *gin.Context) {
+func (h *Article) Delete(c *gin.Context) {
 	articleId := c.Param("id")
 	model.DeleteArticle(articleId)
-	c.JSONP(http.StatusOK,"ok")
+	c.JSONP(http.StatusOK, "ok")
 }
 
-func main(){
+func main() {
 	r := gin.Default()
-	r.Any("/article/:id",router.REST(&Article{}))
+	r.Any("/article/:id", router.REST(&Article{}))
 }
 
-//  * GET /article/123 => *Article.Get
-//  * Delete /article/123 => *Article.Delete
 ```
 also, you can use RESTAny, things will be extremely easy!!
 
 ```go
 package main
 
-func (h *Article)Get(c *gin.Context, id int) {
-	fmt.Println("article:",id) // output: article: 123
+import (
+	"fmt"
+	"net/http"
+)
+
+func (h *Article) Get(c *gin.Context, id int) {
+	fmt.Println("article:", id) // output: article: 123
 	article := model.SearchArticle(id)
-	c.JSONP(http.StatusOK,article)
+	c.JSONP(http.StatusOK, article)
 }
 
-func (h *Article)Delete(c *gin.Context, id int) {
-	fmt.Println("article:",id) // output: article: 123
+func (h *Article) Delete(c *gin.Context, id int) {
+	fmt.Println("article:", id) // output: article: 123
 	model.DeleteArticle(id)
-	c.JSONP(http.StatusOK,"ok")
+	c.JSONP(http.StatusOK, "ok")
 }
 
-
-func main(){
-	r:= gin.Default()
-	r.Any("/article/:path",router.RESTAny(&Article{}))
+func main() {
+	r := gin.Default()
+	r.Any("/article/:path", router.RESTAny(&Article{}))
 }
 
 // GET /article/123 => *Article.Get(c, 123)
 // DELETE /article/123 => *Article.Delete(c, 123)
-
 
 ```
 
